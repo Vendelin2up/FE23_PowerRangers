@@ -8,7 +8,11 @@
     "command": [],
     "options": {},
     "error": null,
+<<<<<<< HEAD
     "machineId": "b9f0b90788ddbb9f4d27ac158684e040",
+=======
+    "machineId": "debb28a8f9be98d433004cfaf03df91f",
+>>>>>>> 264c32f0a4368a7594a809a9ed24ff0e0c297956
     "serviceProviderAwsCfStackId": null,
     "serviceProviderAwsCfStackCreated": null,
     "serviceProviderAwsCfStackUpdated": null,
