@@ -22,9 +22,57 @@ provider:
           Resource: '*'
 
 functions:
-  hello:
-    handler: handler.hello
+  CreateBooking:
+    handler: functions/CreateBooking/index.handler
     events:
       - httpApi:
-          path: /
-          method: get
+          path: /booking
+          method: POST
+
+  UpdateBooking:
+    handler: functions/UpdateBooking/index.handler
+    events:
+      - httpApi:
+          path: /booking/{id}
+          method: PUT
+
+  CancelBooking:
+    handler: functions/CancelBooking/index.handler
+    events:
+      - httpApi:
+          path: /booking/{id}
+          method: DELETE
+
+  GetBookings:
+    handler: functions/GetBookings/index.handler
+    events:
+      - httpApi:
+          path: /admin      # fråga om path
+          method: GET
+
+resources:
+  Resources:
+    BookingTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: bookings
+        AttributeDefinitions:
+          - AttributeName: 'id'
+            AttributeType: 'S'
+        KeySchema:
+          - AttributeName: 'id'
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    RoomTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: rooms
+        AttributeDefinitions:
+          - AttributeName: 'room-id'
+            AttributeType: 'S'
+        KeySchema:
+          - AttributeName: 'room-id'
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
