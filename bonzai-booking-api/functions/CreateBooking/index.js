@@ -51,10 +51,12 @@ exports.handler = async (event) => {
       TableName: 'bookings',
       Item: {
         id: bookingId,
-        date: body.date,
+        checkIn: body.checkIn,
+        checkOut: body.checkOut,
         numberOfGuests: body.numberOfGuests,
         rooms: availableRooms.map(room => room['room-id']),
         totalPrice: totalPrice,
+        name: body.name,
         createdAt: new Date().toISOString(),
       },
     });
