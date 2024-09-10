@@ -47,7 +47,7 @@ functions:
     handler: functions/GetBookings/index.handler
     events:
       - httpApi:
-          path: /admin      # fråga om path
+          path: /admin/bookings      # fråga om path
           method: GET
 
 resources:
