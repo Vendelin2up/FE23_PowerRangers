@@ -1,6 +1,6 @@
 # "org" ensures this Service is used with the correct Serverless Framework Access Key.
-# org: fe23ht
-org: bommen
+org: fe23ht
+
 # "service" is the name of this project. This will also be added to your AWS resource names.
 service: bonzai-booking-api
 
