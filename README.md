@@ -23,3 +23,4 @@
 ## Make a room reservation: <br>
 ** POST: **  
 ### Path: /booking
+#### Body: empty
