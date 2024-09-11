@@ -9,6 +9,19 @@
 | GET      | /admin/bookings | Ser alla bokade rum |
 
 ## Make a room reservation: <br>
+Booking of room can be done for available rooms in rooms database.
+3 room types are available:
+-single (1 bed)
+-double (2 beds)
+-suite (3 beds)
+
+A booking request must specify number of guests and specify number of room type(s).
+Mandatory input must be provided in the POST request, (see below).
+System checks that number of guests <=  requested number of beds in room(s).
+System checks that requested room(s) are not booked.
+Max 20 rooms can be booked within one booking.
+Total price for booking is calculated ( number of days * requested room(s).
+
 ** POST: **  
 ### Path: /booking
 
