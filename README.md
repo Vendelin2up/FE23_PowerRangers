@@ -1,5 +1,13 @@
 ﻿# FE23_PowerRangers - Amanda Cyrus, Solveig Béen, Baran 
 
+| Anrop       | Route           | Resultat |
+| ------------- |:-------------:| -----:|
+| POST      | /booking | Bokar rum |
+| DELETE    | /booking{id} | Avbokar rum |
+| PUT      | /booking{id} | Uppdaterar bokning |
+| GET      | /admin/bookings | Ser alla bokade rum |
+
+
 ## Make a room reservation: <br>
 ** POST: **  
 ### Path: /booking
