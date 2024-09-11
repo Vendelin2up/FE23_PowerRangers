@@ -1,50 +1,7 @@
 const { sendResponse, sendError } = require('../../responses/index');
+const { calculateNumberOfNights, getAvailableRoomsByRoomType, extractPrice} = require('../../services/utils');
 const { v4: uuidv4 } = require('uuid');
 const { db } = require('../../services/db');  // Importera rätt dynamoDb från AWS SDK v3
-
-
-// Funktion för att extrahera numeriska värdet från roomCost-strängen
-  function extractPrice(roomCost) {
-  return Number(roomCost.replace(/[^0-9.-]+/g,""));  // Tar bort alla icke-numeriska tecken
-}
-
-// Funktion för att beräkna antalet nätter mellan två datum.
-const calculateNumberOfNights = (checkIn, checkOut) => {
-// Konvertera checkIn och checkOut till Date-objekt
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-    const millisecondsPerDay = 1000 * 60 * 60 * 24;
-    const numberOfNights = (checkOutDate - checkInDate) / millisecondsPerDay;
-    if (numberOfNights <= 0) {
-      return sendError(400, { message: 'Check-out date must be after check-in date' });
-    } else {
-      return numberOfNights;
-    }
-  };
-
-
-// Funktion för att hämta tillgängliga rum baserat på kategori och antal
-const getAvailableRoomsByRoomType = async (roomType, requestedCount) => {
-  const params = {
-    TableName: 'rooms',
-    FilterExpression: 'roomType = :roomType AND Booked = :booked',
-    ExpressionAttributeValues: {
-      ':roomType': roomType,
-      ':booked': false,
-    },
-  };
-  const result = await db.scan(params);
-  const availableRooms = result.Items || [];
-  console.log(`Available rooms in category ${roomType}:`, availableRooms);  // Debugging line
-   
-  if (availableRooms.length < requestedCount) {
-    throw new Error(`Not enough rooms available in the ${roomType} room type.`);
-    }
-
-  //returnerar efterfrågat antal rum i rums-typ  
-  return availableRooms.slice(0, requestedCount);
-};  
-
 
 
 exports.handler = async (event) => {
@@ -54,8 +11,16 @@ exports.handler = async (event) => {
 
     // Validera indata
     if (!body.checkIn || !body.checkOut || !body.numberOfGuests || !body.name || !body.email || body.singleRooms === undefined || body.doubleRooms === undefined || body.suiteRooms === undefined) {
-      return sendError(400, { message: 'Missing required fields: date, numberOfGuests, room categories, name, or email.' });
+      return sendError(400, { message: 'Det saknas data i något fält: check-in, check-out, valda rum, , namn, eller email.' });
     }
+
+    
+    //Kontrollera att Number of Rooms i bokningen <= 20
+    // Summera alla valda rumstyper för att få totalt antal bokade rum
+    const totalRooms = (body.singleRooms || 0) + (body.doubleRooms || 0) + (body.suiteRooms || 0);
+    if (totalRooms > 20) {
+      return sendError(400, { message: `Bokningen överskrider maxantalet av rum (20) för en bokning. Du har valt ${totalRooms} rum.` });
+    } 
 
     // Deklarera och initiera variablerna för tillgängliga rum, totalpris och totalbäddar
     const availableRooms = [];
@@ -100,8 +65,10 @@ exports.handler = async (event) => {
 
     //Kontrollera att Number of Guests <= Totalt antal bäddar i valt/valda rum
     if (body.numberOfGuests > totalBeds) {
-      return sendError(400, { message: `Number of guests exceeds total available beds (${totalBeds}) in selected rooms.` });
+      return sendError(400, { message: `Antalet gäster är fler än tillgängliga sängar  (${totalBeds}) i specifierade rum.` });
     }
+
+
 
 
     // Skapa ett unikt boknings-ID
@@ -132,7 +99,7 @@ exports.handler = async (event) => {
         ExpressionAttributeValues: { ':booked': true },
       };
 
-      await db.update(updateParams);  // Ingen .promise() behövs med AWS SDK v3
+      await db.update(updateParams);  
     }
 
     // Returnera bokningsbekräftelse
@@ -149,6 +116,6 @@ exports.handler = async (event) => {
 
   } catch (error) {
     console.error('Error creating booking:', error);
-    return sendError(500, { message: 'Could not create booking', error: error.message });
+    return sendError(500, { message: 'Det gick inte att göra en bokning.', error: error.message });
   }
 };

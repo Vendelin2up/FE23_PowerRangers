@@ -1,76 +1,114 @@
-const { db } = require('../../services/db');
 const { sendResponse, sendError } = require('../../responses/index');
+const { calculateNumberOfNights, getAvailableRoomsByRoomType, extractPrice, releaseRooms  } = require('../../services/utils');
+const { db } = require('../../services/db');
+
 
 exports.handler = async (event) => {
   try {
-    const body = JSON.parse(event.body);
-
-    // Kontrollera att alla nödvändiga fält finns med
-    if (!body.date || !body.numberOfGuests || !body.roomIds) {
-      return sendError(400, { message: 'Missing required fields: bookingId, date, numberOfGuests, or roomIds' });
-    }
-
+    // Extract bookingId from path parameters
     const bookingId = event.pathParameters.id;
 
-    // Kontrollera om bokningen finns
-    const bookingParams = {
-      TableName: 'bookings',
-      Key: { id: bookingId },
-    };
-    const bookingResult = await db.get(bookingParams);
-    const booking = bookingResult.Item;
-
-    if (!booking) {
-      return sendError(404, { message: `Booking with id ${bookingId} not found` });
+     // Validate bookingId
+     if (!bookingId || bookingId.trim() === '') {
+      return sendError(400, { message: 'BokningsId är felaktigt eller saknas.' });
     }
-// Kontrollera tillgänglighet för de nya rummen
-    const roomIds = body.roomIds;
+
+  // Parse request body
+  const body = JSON.parse(event.body);
+
+     // Hämta efterfrågad bokning
+     const existingBookingResult = await db.get({
+      TableName: 'bookings',
+      Key: { id: bookingId }
+    });
+
+    if (!existingBookingResult.Item) {
+      return sendError(404, { message: 'Bokning kan inte hittas.' });
+    }
+
+    const existingBooking = existingBookingResult.Item;
+    const oldRooms = existingBooking.rooms;
+
+    // Avboka rum.
+    await releaseRooms(oldRooms);
+
+
+    // Hitta nytt rum som passar uppdaterat önskemål.
     const availableRooms = [];
     let totalPrice = 0;
+    let totalBeds = 0;
+    const roomTypeCount = {};
 
-    for (const roomId of roomIds) {
-      const params = {
-        TableName: 'rooms',
-        Key: { 'room-id': roomId },
-      };
-      const result = await db.get(params);
-      const room = result.Item;
-
-      if (!room) {
-        return sendError(404, { message: `Room with id ${roomId} not found` });
-      }
-
-      if (room.Booked) {
-        return sendError(400, { message: `Room with id ${roomId} is already booked` });
-      }
-
-      availableRooms.push(room);
-      totalPrice += room.roomCost;
+    if (body.singleRooms > 0) {
+      const singleRooms = await getAvailableRoomsByRoomType('Single', body.singleRooms);
+      availableRooms.push(...singleRooms);
+      roomTypeCount.Single = singleRooms.length;
     }
 
-    // Uppdatera bokningen
-    const updateParams = {
+    if (body.doubleRooms > 0) {
+      const doubleRooms = await getAvailableRoomsByRoomType('Double', body.doubleRooms);
+      availableRooms.push(...doubleRooms);
+      roomTypeCount.Double = doubleRooms.length;
+    }
+
+    if (body.suiteRooms > 0) {
+      const suiteRooms = await getAvailableRoomsByRoomType('Suite', body.suiteRooms);
+      availableRooms.push(...suiteRooms);
+      roomTypeCount.Suite = suiteRooms.length;
+    }
+
+    // Calculate number of nights and total price
+    const numberOfNights = calculateNumberOfNights(body.checkIn, body.checkOut);
+    availableRooms.forEach(room => {
+      totalBeds += parseInt(room.numberOfBeds, 10) || 0;
+      totalPrice += extractPrice(room.roomCost) * numberOfNights;
+    });
+
+    // Check if the number of guests fits within the available beds
+    if (body.numberOfGuests > totalBeds) {
+      return sendError(400, { message: `Antalet gäster är fler än tillgängliga sängar  (${totalBeds}) i specifierade rum.`  });
+    }
+
+    // Update booking in DynamoDB
+    await db.update({
       TableName: 'bookings',
       Key: { id: bookingId },
-      UpdateExpression: 'SET #date = :date, numberOfGuests = :numberOfGuests, rooms = :rooms, totalPrice = :totalPrice',
-      ExpressionAttributeNames: {
-        '#date': 'date',  // 'date' är ett reserverat ord i DynamoDB, därför använder vi en alias för det.
-      },
+      UpdateExpression: 'SET checkIn = :checkIn, checkOut = :checkOut, numberOfGuests = :numberOfGuests, rooms = :rooms, totalPrice = :totalPrice',
       ExpressionAttributeValues: {
-        ':date': body.date,
+        ':checkIn': body.checkIn,
+        ':checkOut': body.checkOut,
         ':numberOfGuests': body.numberOfGuests,
-        ':rooms': availableRooms.map(room => room['room-id']),  // Spara bara room-id:n
-        ':totalPrice': totalPrice,
+        ':rooms': availableRooms.map(room => room['room-id']),
+        ':totalPrice': totalPrice
       },
-      ReturnValues: 'UPDATED_NEW',
-    };
+      ReturnValues: 'ALL_NEW'
+    });
 
-    const updateResult = await db.update(updateParams);
+    // Mark the new rooms as booked
+    for (const room of availableRooms) {
+      const updateParams = {
+        TableName: 'rooms',
+        Key: { 'room-id': room['room-id'] },
+        UpdateExpression: 'SET Booked = :booked',
+        ExpressionAttributeValues: { ':booked': true },
+      };
+      await db.update(updateParams);
+    }
 
-    return sendResponse({ message: 'Booking updated successfully', result: updateResult });
+    // Return updated booking confirmation
+    return sendResponse({
+      message: "Booking updated successfully",
+      bookingId: bookingId,
+      numberOfGuests: body.numberOfGuests,
+      roomTypes: roomTypeCount,
+      totalPrice: totalPrice,
+      checkIn: body.checkIn,
+      checkOut: body.checkOut,
+      name: body.name
+    });
 
   } catch (error) {
     console.error('Error updating booking:', error);
-    return sendError(500, { message: 'Internal server error', error });
+    return sendError(500, { message: 'Det gick inte att uppdatera bokningen.', error: error.message });
   }
 };
