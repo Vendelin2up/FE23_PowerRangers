@@ -12,6 +12,8 @@
 ** POST: **  
 ### Path: /booking
 
+#### Body: 
+
 | Command | Description |
 | --- | --- |
 | "checkIn": | "2024-09-15", | 
