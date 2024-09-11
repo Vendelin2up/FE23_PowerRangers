@@ -8,6 +8,9 @@
 | PUT      | /booking{id} | Uppdaterar bokning |
 | GET      | /admin/bookings | Ser alla bokade rum |
 
+## Make a room reservation: <br>
+** POST: **  
+### Path: /booking
 
 | Command | Description |
 | --- | --- |
@@ -20,7 +23,9 @@
 | "doubleRooms": | 0 |
 | "suiteRooms": | 0 |
 
-## Make a room reservation: <br>
-** POST: **  
-### Path: /booking
+## Cancel booking: <br>
+** DELETE: **  
+### Path: /booking{id}
 #### Body: empty
+
+Se till att du använder ett korrekt id i pathURL:en
